@@ -1,8 +1,10 @@
 # Relating Implicit Bias and Adversarial Attacks through Intrinsic Dimension
 
-Code for the paper.
+Code for the paper, tested with `python>=3.8, <=3.10`.
 
-Required libraries, data and models can be downloaded by running:
+Required libraries are reported in `requirements.txt` and they can be installed via `pip`. 
+
+Data and models can be downloaded by running:
 
 ```makefile
 bash preparation.sh
