@@ -45,9 +45,9 @@ base_model.load_state_dict(torch.load("trained_models/"+model_name+"/clean.pt"))
 base_model.eval()
 fmodel = foolbox.models.PyTorchModel(base_model, bounds=(0,1))
 if dataset=='cifar10':
-    adv_dataloader=DataLoader(AdversarialDataset(fmodel, model_name, attack, dataloaders['test'], image_size), batch_size=batch_size, shuffle=False)
+    adv_dataloader=DataLoader(AdversarialDataset(fmodel, model_name, attack, dataloaders['test'], image_size, 'test'), batch_size=batch_size, shuffle=False)
 elif dataset=='imagenette':
-    adv_dataloader=DataLoader(AdversarialDataset(fmodel, model_name, attack, dataloaders['all'], image_size), batch_size=batch_size, shuffle=False)
+    adv_dataloader=DataLoader(AdversarialDataset(fmodel, model_name, attack, dataloaders['all'], image_size, 'all'), batch_size=batch_size, shuffle=False)
 idx=0
 for x, xadv, y in tqdm(adv_dataloader):
     if args.mask=='essential':

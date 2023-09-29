@@ -89,21 +89,23 @@ class AdversarialDataset(Dataset):
     Param attack (str): type of attack to employ (FMN, PGD, DF)
     Param dataloader (torch.data.DataLoader): dataloader containing images to attack
     Param image_size (int): height (== width) of the images
+    Param fold (str): data type (train, test or all)
     Param exist_ok (bool): if True adversarial attacks are not regenerated if they already exist
 
     Return: index of next image to be processed
     '''
-    def __init__(self, model, model_name, attack, dataloader, image_size, exist_ok=True):
-        c="./data/adv/"+attack+"/"+model_name+"/clean.pt"
-        a="./data/adv/"+attack+"/"+model_name+"/adv.pt"
-        l="./data/adv/"+attack+"/"+model_name+"/lbl.pt"
+    def __init__(self, model, model_name, attack, dataloader, image_size, fold='test', exist_ok=True):
+        c="./data/adv/"+attack+"/"+model_name+"/"+fold+"/clean.pt"
+        a="./data/adv/"+attack+"/"+model_name+"/"+fold+"/adv.pt"
+        l="./data/adv/"+attack+"/"+model_name+"/"+fold+"/lbl.pt"
+
         if os.path.isfile(c) and os.path.isfile(a) and os.path.isfile(l) and exist_ok:
             self.clean_imgs=torch.load(c)
             self.adv_imgs=torch.load(a)
             self.labels=torch.load(l)
             return
-        if not os.path.exists("./data/adv/"+attack+"/"+model_name):
-            os.makedirs("./data/adv/"+attack+"/"+model_name)
+        if not os.path.exists("./data/adv/"+attack+"/"+model_name+"/"+fold):
+            os.makedirs("./data/adv/"+attack+"/"+model_name+"/"+fold)
         self.clean_imgs=torch.empty(0,3,image_size,image_size)
         self.adv_imgs=torch.empty(0,3,image_size,image_size)
         self.labels=torch.empty(0, dtype=torch.int64)
