@@ -26,9 +26,16 @@ python mask_train.py --model --attack --mask
 
 The first argument follows the same syntax as above, while `attack` determines the kind of adversarial attack to employ and it can be chosen among `FMN`, `PGD` and `DF` (for respectively Fast Minimum Norm , Projected Gradient Descent  and DeepFool). `mask` defines the type of masks to be trained, either `essential` or `adversarial`.
 
-Finally, once both essential frequency masks and adversarial frequency masks have been computed for a given model-attack pair, correlations (based on cosine similarity and on the novel method based on Intrinsic Dimension) can be computed using:
+Once both essential frequency masks and adversarial frequency masks have been computed for a given model-attack pair, correlations (based on cosine similarity and on the novel method based on Intrinsic Dimension) can be computed using:
 
 ```
 python correlation.py --model --attack
 ```
 
+The experiment on class-specificity of masks, reported in sections 4.7 and A.6, can be reproduced by running:
+
+```
+python class_specificity.py
+```
+
+And, finally, the class-level masks can be computed and tested running the notebook `class_level_masks.ipynb`.
