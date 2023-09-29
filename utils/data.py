@@ -20,7 +20,7 @@ def compute_id(dataset):
     id=data.compute_id_2NN()[0]
     return id
 
-def get_dataloaders(dataset, train_batch_size, test_batch_size, shuffle_train=False, shuffle_test=False):
+def get_dataloaders(dataset, train_batch_size, test_batch_size, shuffle_train=False, shuffle_test=False, unnorm=False):
 
     '''
     Utility function to obtain DataLoaders
@@ -45,6 +45,10 @@ def get_dataloaders(dataset, train_batch_size, test_batch_size, shuffle_train=Fa
                 transforms.ToTensor()
             ]),
         }
+        if unnorm:
+            data_transforms['train']=transforms.Compose([
+                transforms.ToTensor()
+            ])
         datasets = {x: torchvision.datasets.CIFAR10(root='./data', train=(x=='train'), download=True, transform=data_transforms[x]) for x in['train', 'test']}
 
         dataloaders = {'train': DataLoader(datasets['train'], batch_size=train_batch_size, shuffle=shuffle_train),
