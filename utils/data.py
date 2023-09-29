@@ -5,7 +5,20 @@ from torchvision.transforms import transforms
 from torch.utils.data import DataLoader, Dataset
 import numpy as np
 import foolbox as fb
+from dadapy.data import Data
 
+def compute_id(dataset):
+    '''
+    Function to compute Intrinsic Dimension of a data set
+
+    Param dataset (np.array): data set
+
+    Return: intrinsic dimension of data set, estimated with TwoNN (Facco et al., 2017)
+    '''
+    data = Data(dataset, maxk=3)
+    del dataset
+    id=data.compute_id_2NN()[0]
+    return id
 
 def get_dataloaders(dataset, train_batch_size, test_batch_size, shuffle_train=False, shuffle_test=False):
 

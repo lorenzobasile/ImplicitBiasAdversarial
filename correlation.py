@@ -1,24 +1,13 @@
 
-from utils.data import MaskDataset
+from utils.data import MaskDataset, compute_id
 import argparse
 import numpy as np
 import scipy.stats
 from tqdm import tqdm
-from dadapy.data import Data
 
 
-def compute_id(dataset):
-    '''
-    Function to compute Intrinsic Dimension of a data set
 
-    Param dataset (np.array): data set
 
-    Return: intrinsic dimension of data set, estimated with TwoNN (Facco et al., 2017)
-    '''
-    data = Data(dataset, maxk=3)
-    del dataset
-    id=data.compute_id_2NN()[0]
-    return id
 
 def cosine_sim(dataset1, dataset2):
     '''
