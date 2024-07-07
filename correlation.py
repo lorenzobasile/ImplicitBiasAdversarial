@@ -1,12 +1,10 @@
 
-from utils.data import MaskDataset, compute_id
+from utils.data import MaskDataset
 import argparse
 import numpy as np
-import scipy.stats
-from tqdm import tqdm
-
-
-
+from utils.intrinsic_dimension import id_correlation
+import torch
+from anatome.similarity import svcca_distance
 
 
 def cosine_sim(dataset1, dataset2):
@@ -22,50 +20,44 @@ def cosine_sim(dataset1, dataset2):
     norm1=np.linalg.norm(dataset1, 2, axis=1)
     norm2=np.linalg.norm(dataset2, 2, axis=1)
     corrs=np.divide(np.divide(product, norm1), norm2)
+    import matplotlib.pyplot as plt
+    plt.figure()
+    plt.hist(corrs, bins=100)
+    plt.savefig('corrs.png')
     return np.mean(corrs), np.std(corrs)
 
 parser = argparse.ArgumentParser()
 
 parser.add_argument('--attack', type=str, default="FMN", help="attack type")
 parser.add_argument('--model', type=str, default="resnet20", help="model architecture")
-parser.add_argument('--compute_individual', type=str, default='False')
+
+device='cuda' if torch.cuda.is_available() else 'cpu'
 
 args = parser.parse_args()
-image_size=224 if args.model=='resnet18' else 32
+image_size=224 if args.model=='resnet18' or args.model=='vit' else 32
 
 dataset1=MaskDataset(f'./adversarial/{args.attack}/{args.model}/masks/', image_size)
 dataset2=MaskDataset(f'./essential/{args.model}/masks/', image_size)
 
-masks1=dataset1.masks.numpy()
-masks2=dataset2.masks.numpy()
+masks1=dataset1.masks
+masks2=dataset2.masks
 
 indices1=dataset1.mask_indices.numpy()
 indices2=dataset2.mask_indices.numpy()
 
 _, ind1, ind2= np.intersect1d(indices1, indices2, assume_unique=True, return_indices=True)
 
-masks1=masks1[ind1].reshape(-1, 3*image_size*image_size)
-masks2=masks2[ind2].reshape(-1, 3*image_size*image_size)
+masks1=masks1[ind1]
+masks2=masks2[ind2]
 
-mu, sigma=cosine_sim(masks1, masks2)
-print(f'Cosine similarity: mean {mu}, std {sigma}')
+kernel_size=1 if image_size==32 else 7
 
-if args.compute_individual=='True':
-    print(f'Id of second set: {compute_id(masks1)}')
-    print(f'Id of second set: {compute_id(masks2)}')
-    
-full_data=np.concatenate([masks1, masks2], axis=1)
-noshuffle=compute_id(full_data)
-print(f'No-shuffle Id: {noshuffle}')
 
-shuffle=[]
-for _ in tqdm(range(50)):
-    del full_data
-    full_data=np.concatenate([np.random.permutation(masks1), masks2], axis=1)
-    shuffle.append(compute_id(full_data))
-shuffle=np.array(shuffle)
-print(f'Shuffled Id mean: {shuffle.mean()}, std: {shuffle.std()}')
-zscore=(noshuffle-shuffle.mean())/shuffle.std()
-print(f'Z-score: {zscore}')
-p=scipy.stats.norm.cdf(zscore)
-print(f'P-value: {p}')
+m1=torch.nn.functional.max_pool2d(masks1, kernel_size=kernel_size)
+m1=m1.reshape(-1, 3*m1.shape[-1]*m1.shape[-1])
+m2=torch.nn.functional.max_pool2d(masks2, kernel_size=kernel_size)
+m2=m2.reshape(-1, 3*m2.shape[-1]*m2.shape[-1])
+
+print("IdCor: ", id_correlation(m1.to(device), m2.to(device), algorithm='twoNN', N=100))
+print("SVCCA: ", 1-svcca_distance(m1.to(device), m2.to(device), accept_rate=0.99, backend='svd'))
+print("Cosine sim: ", cosine_sim(m1.numpy(), m2.numpy()))

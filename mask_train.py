@@ -15,13 +15,19 @@ parser.add_argument('--model', type=str, default="resnet20", help="model archite
 parser.add_argument('--mask', type=str, default="essential", help="type of mask (essential or adversarial)")
 args = parser.parse_args()
 
-save_figs=False
-lam=0.01
+save_figs=True
 model_name=args.model
-if model_name=='resnet18':
+if model_name=='resnet18' or model_name=='vit':
     dataset='imagenette'
 else:
     dataset='cifar10'
+lam=0.1 if dataset == 'imagenette' else 0.5
+
+eps=8/255
+if 'PGD' in args.attack and len(args.attack)>3:
+    eps = int(args.attack[4:])/255
+    print(eps)
+
 image_size=32 if dataset=='cifar10' else 224
 attack=args.attack
 batch_size=64
@@ -45,11 +51,11 @@ base_model.load_state_dict(torch.load("trained_models/"+model_name+"/clean.pt"))
 base_model.eval()
 fmodel = foolbox.models.PyTorchModel(base_model, bounds=(0,1))
 if dataset=='cifar10':
-    adv_dataloader=DataLoader(AdversarialDataset(fmodel, model_name, attack, dataloaders['test'], image_size, 'test'), batch_size=batch_size, shuffle=False)
+    adv_dataloader=DataLoader(AdversarialDataset(fmodel, model_name, attack, dataloaders['test'], image_size, 'test', eps=eps), batch_size=batch_size, shuffle=False)
 elif dataset=='imagenette':
-    adv_dataloader=DataLoader(AdversarialDataset(fmodel, model_name, attack, dataloaders['all'], image_size, 'all'), batch_size=batch_size, shuffle=False)
+    adv_dataloader=DataLoader(AdversarialDataset(fmodel, model_name, attack, dataloaders['all'], image_size, 'all', eps=eps), batch_size=batch_size, shuffle=False)
 idx=0
-for x, xadv, y in tqdm(adv_dataloader):
+for x, xadv, y, yadv in tqdm(adv_dataloader):
     if args.mask=='essential':
         idx=ess_train(base_model, x, y, lam, idx, path, image_size, save_figs)
     elif args.mask=='adversarial':

@@ -63,5 +63,12 @@ def get_model(model_name):
         for n,p in model.named_parameters():
             if n!="fc.weight" and n!="fc.bias":
                 p.requires_grad=False
+    elif model_name=='vit':
+        model = torchvision.models.vit_b_16(weights='IMAGENET1K_V1')
+        for n,p in model.named_parameters():
+            if n!="heads.head.weight" and n!="heads.head.bias":
+                p.requires_grad=False
+            else:  
+                print(n)
     return model
 

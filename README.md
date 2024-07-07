@@ -16,7 +16,7 @@ Then, the first step is to obtain trained models, which can by done by typing:
 python train.py --model
 ```
 
-The `model` argument can be chosen between `resnet20` and `cct` (for CIFAR-10) and `resnet18` (for Imagenette). This script will create a `trained_models` folder containing the trained parameters for the chosen model, to be used for the following experiments.
+The `model` argument can be chosen between `resnet20` (for CIFAR-10) and `resnet18` and `vit` (for Imagenette). This script will create a `trained_models` folder containing the trained parameters for the chosen model, to be used for the following experiments.
 
 Fourier masks (essential frequency masks and adversarial frequency masks) can be trained by running:
 

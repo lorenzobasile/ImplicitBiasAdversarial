@@ -5,20 +5,7 @@ from torchvision.transforms import transforms
 from torch.utils.data import DataLoader, Dataset
 import numpy as np
 import foolbox as fb
-from dadapy.data import Data
-
-def compute_id(dataset):
-    '''
-    Function to compute Intrinsic Dimension of a data set
-
-    Param dataset (np.array): data set
-
-    Return: intrinsic dimension of data set, estimated with TwoNN (Facco et al., 2017)
-    '''
-    data = Data(dataset, maxk=3)
-    del dataset
-    id=data.compute_id_2NN()[0]
-    return id
+from tqdm import trange, tqdm
 
 def get_dataloaders(dataset, train_batch_size, test_batch_size, shuffle_train=False, shuffle_test=False, unnorm=False):
 
@@ -94,28 +81,31 @@ class AdversarialDataset(Dataset):
 
     Return: index of next image to be processed
     '''
-    def __init__(self, model, model_name, attack, dataloader, image_size, fold='test', exist_ok=True):
+    def __init__(self, model, model_name, attack, dataloader, image_size, fold='test', exist_ok=True, eps=8/255):
         c="./data/adv/"+attack+"/"+model_name+"/"+fold+"/clean.pt"
         a="./data/adv/"+attack+"/"+model_name+"/"+fold+"/adv.pt"
         l="./data/adv/"+attack+"/"+model_name+"/"+fold+"/lbl.pt"
+        a_l="./data/adv/"+attack+"/"+model_name+"/"+fold+"/adv_lbl.pt"
 
-        if os.path.isfile(c) and os.path.isfile(a) and os.path.isfile(l) and exist_ok:
+        if os.path.isfile(c) and os.path.isfile(a) and os.path.isfile(l) and os.path.isfile(a_l) and exist_ok:
             self.clean_imgs=torch.load(c)
             self.adv_imgs=torch.load(a)
             self.labels=torch.load(l)
+            self.adv_labels=torch.load(a_l)
             return
         if not os.path.exists("./data/adv/"+attack+"/"+model_name+"/"+fold):
             os.makedirs("./data/adv/"+attack+"/"+model_name+"/"+fold)
         self.clean_imgs=torch.empty(0,3,image_size,image_size)
         self.adv_imgs=torch.empty(0,3,image_size,image_size)
         self.labels=torch.empty(0, dtype=torch.int64)
+        self.adv_labels=torch.empty(0, dtype=torch.int64)
 
         device=model.device
-        for k, (x, y) in enumerate(dataloader):
+        for k, (x, y) in tqdm(enumerate(dataloader)):
             x=x.to(device)
             y=y.to(device)
 
-            if attack=='PGD':
+            if 'PGD' in attack:
                 adversary = fb.attacks.PGD()
             elif attack=='FMN':
                 adversary = fb.attacks.LInfFMNAttack()
@@ -124,27 +114,31 @@ class AdversarialDataset(Dataset):
             if 'FMN' in attack or 'DF' in attack:
                 x_adv, clipped, is_adv = adversary(model, x, y, epsilons=None)
             else:
-                x_adv, clipped, is_adv = adversary(model, x, y, epsilons=0.01)
+                x_adv, clipped, is_adv = adversary(model, x, y, epsilons=eps)
             self.clean_imgs=torch.cat((self.clean_imgs, x.detach().cpu()))
             self.adv_imgs=torch.cat((self.adv_imgs, x_adv.detach().cpu()))
 
             self.labels=torch.cat((self.labels, y.detach().cpu()))
             self.labels.type(torch.LongTensor)
+            self.adv_labels=torch.cat((self.adv_labels, model(x_adv).argmax(-1).detach().cpu()))
+            self.adv_labels.type(torch.LongTensor)
             
 
         self.labels, indices = torch.sort(self.labels)
         self.clean_imgs = self.clean_imgs[indices]
         self.adv_imgs = self.adv_imgs[indices]
+        self.adv_labels = self.adv_labels[indices]
         torch.save(self.clean_imgs, c)
         torch.save(self.adv_imgs, a)
         torch.save(self.labels, l)
+        torch.save(self.adv_labels, a_l)
         
     def __len__(self):
         return len(self.clean_imgs)
 
     def __getitem__(self, idx):
-        clean, adv, labels= self.clean_imgs[idx], self.adv_imgs[idx], self.labels[idx]
-        return clean, adv, labels
+        clean, adv, labels, adv_labels = self.clean_imgs[idx], self.adv_imgs[idx], self.labels[idx], self.adv_labels[idx]
+        return clean, adv, labels, adv_labels
 
 
 class MaskDataset(Dataset):
@@ -168,24 +162,21 @@ class MaskDataset(Dataset):
             self.labels=torch.load(l)
             self.mask_indices=torch.load(i)
             return
-        
-        self.masks=torch.empty(0,3,image_size,image_size)
-        self.labels=torch.empty(0, dtype=torch.int64)
-        self.mask_indices=torch.empty(0, dtype=torch.int64)
 
+        masks=[]
+        labels=[]
+        mask_indices=[]
 
-        for c in range(10):
+        for c in trange(10):
             class_list=sorted(os.listdir(path+str(c)),key=lambda x: int(os.path.splitext(x)[0]))
-            temp_masks=torch.empty(0,3,image_size,image_size)
-            temp_labels=torch.empty(0, dtype=torch.int64)
-            temp_mask_indices=torch.empty(0, dtype=torch.int64)
             for mask in class_list:
-                temp_masks=torch.cat((temp_masks, torch.from_numpy(np.load(path+str(c)+"/"+mask)).unsqueeze(0)))
-                temp_labels=torch.cat((temp_labels, torch.tensor(c).unsqueeze(0)))
-                temp_mask_indices=torch.cat((temp_mask_indices, torch.tensor(int(mask[:-4])).unsqueeze(0)))
-            self.masks=torch.cat((self.masks, temp_masks))
-            self.labels=torch.cat((self.labels, temp_labels))
-            self.mask_indices=torch.cat((self.mask_indices, temp_mask_indices))
+                m=torch.from_numpy(np.load(path+str(c)+"/"+mask)).unsqueeze(0)
+                masks.append(m)
+                labels.append(torch.tensor(c).unsqueeze(0))
+                mask_indices.append(torch.tensor(int(mask[:-4])).unsqueeze(0))
+        self.masks=torch.cat(masks)
+        self.labels=torch.cat(labels)
+        self.mask_indices=torch.cat(mask_indices)
         
         torch.save(self.masks, path+"masks.pt")
         torch.save(self.labels, path+"labels.pt")

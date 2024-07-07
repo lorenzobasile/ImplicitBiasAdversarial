@@ -1,4 +1,3 @@
-dadapy==0.1.1
 foolbox==3.3.2
 matplotlib==3.4.3
 numpy==1.23.5
