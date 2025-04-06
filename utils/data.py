@@ -78,6 +78,7 @@ class AdversarialDataset(Dataset):
     Param image_size (int): height (== width) of the images
     Param fold (str): data type (train, test or all)
     Param exist_ok (bool): if True adversarial attacks are not regenerated if they already exist
+    Param eps (float): perturbation magnitude for PGD attack
 
     Return: index of next image to be processed
     '''
@@ -141,49 +142,49 @@ class AdversarialDataset(Dataset):
         return clean, adv, labels, adv_labels
 
 
-class MaskDataset(Dataset):
+class MapDataset(Dataset):
 
     '''
-    Class that inherits from torch.utils.data.Dataset to store Fourier masks
+    Class that inherits from torch.utils.data.Dataset to store Fourier maps
 
-    Attribute masks (torch.tensor): tensor that contains Fourier masks
-    Attribute mask_indices (torch.tensor): tensor that contains the index of the image corresponding to each mask
-    Attribute labels (torch.tensor): tensor that contains original ground truth labels for the image corresponding to the mask
+    Attribute maps (torch.tensor): tensor that contains Fourier maps
+    Attribute map_indices (torch.tensor): tensor that contains the index of the image corresponding to each map
+    Attribute labels (torch.tensor): tensor that contains original ground truth labels for the image corresponding to the map
 
     '''
 
     def __init__(self, path, image_size):
 
-        m=path+"masks.pt"
+        m=path+"maps.pt"
         l=path+"labels.pt"
-        i=path+"mask_indices.pt"
+        i=path+"map_indices.pt"
         if os.path.isfile(m) and os.path.isfile(l) and os.path.isfile(i):
-            self.masks=torch.load(m)
+            self.maps=torch.load(m)
             self.labels=torch.load(l)
-            self.mask_indices=torch.load(i)
+            self.map_indices=torch.load(i)
             return
 
-        masks=[]
+        maps=[]
         labels=[]
-        mask_indices=[]
+        map_indices=[]
 
         for c in trange(10):
             class_list=sorted(os.listdir(path+str(c)),key=lambda x: int(os.path.splitext(x)[0]))
-            for mask in class_list:
-                m=torch.from_numpy(np.load(path+str(c)+"/"+mask)).unsqueeze(0)
-                masks.append(m)
+            for map in class_list:
+                m=torch.from_numpy(np.load(path+str(c)+"/"+map)).unsqueeze(0)
+                maps.append(m)
                 labels.append(torch.tensor(c).unsqueeze(0))
-                mask_indices.append(torch.tensor(int(mask[:-4])).unsqueeze(0))
-        self.masks=torch.cat(masks)
+                map_indices.append(torch.tensor(int(map[:-4])).unsqueeze(0))
+        self.maps=torch.cat(maps)
         self.labels=torch.cat(labels)
-        self.mask_indices=torch.cat(mask_indices)
+        self.map_indices=torch.cat(map_indices)
         
-        torch.save(self.masks, path+"masks.pt")
+        torch.save(self.maps, path+"maps.pt")
         torch.save(self.labels, path+"labels.pt")
-        torch.save(self.mask_indices, path+"mask_indices.pt")
+        torch.save(self.map_indices, path+"map_indices.pt")
 
     def __len__(self):
-        return len(self.masks)
+        return len(self.maps)
 
     def __getitem__(self, idx):
-        return self.masks[idx], self.labels[idx], self.mask_indices[idx]
+        return self.maps[idx], self.labels[idx], self.map_indices[idx]

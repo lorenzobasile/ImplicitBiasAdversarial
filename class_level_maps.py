@@ -1,6 +1,6 @@
 import torch
 from utils.data import get_dataloaders, AdversarialDataset
-from utils.models import get_model, Mask, MaskedClf
+from utils.models import get_model, Map, MaskedClf
 from torch.utils.data import DataLoader
 from utils.data import AdversarialDataset
 import numpy as np
@@ -52,28 +52,28 @@ for lbl in range(10):
     correct=(base_model(x).argmax(-1)==y)
     y=y[correct]
     x=x[correct]
-    model=MaskedClf(Mask((3, 32, 32)).to(device), base_model)
+    model=MaskedClf(Map((3, 32, 32)).to(device), base_model)
     for p in model.clf.parameters():
         p.requires_grad=False
-    model.mask.train()
-    optimizer=torch.optim.Adam(model.mask.parameters(), lr=0.01)
+    model.map.train()
+    optimizer=torch.optim.Adam(model.map.parameters(), lr=0.01)
     for e in range(5000):
         print(e, end='\r')
         if train_adv:
             out=model(xadv)
             l=loss(out, yp)
-            penalty=model.mask.M.abs().sum()
+            penalty=model.map.M.abs().sum()
             l+=penalty*0.001
             avg=l
             optimizer.zero_grad()
             l.backward()
             optimizer.step()
-            model.mask.M.data.clamp_(0., 1.)
+            model.map.M.data.clamp_(0., 1.)
         else:
             avg=0
         out=model(x)
         l=loss(out, y)
-        penalty=model.mask.M.abs().sum()
+        penalty=model.map.M.abs().sum()
         l+=penalty*0.001
         avg+=l
         avg/=2
@@ -81,14 +81,14 @@ for lbl in range(10):
         optimizer.zero_grad()
         l.backward()
         optimizer.step()
-        model.mask.M.data.clamp_(0., 1.)
+        model.map.M.data.clamp_(0., 1.)
         c=yadv[0].cpu().item()
         if(e>500 and abs(avg.item()-np.mean(losses[-20:]))<1e-3):
-            mask=torch.fft.fftshift(model.mask.M.detach().cpu())
-            mask=mask.squeeze().numpy()
-            np.save(f'class_specific/{args.attack}/{c}.npy', mask)
+            map=torch.fft.fftshift(model.map.M.detach().cpu())
+            map=map.squeeze().numpy()
+            np.save(f'class_specific/{args.attack}/{c}.npy', map)
             plt.figure()
-            plt.imshow(np.transpose(mask, (1,2,0)))
+            plt.imshow(np.transpose(map, (1,2,0)))
             plt.xticks([], [])
             plt.yticks([], [])
             plt.savefig(f"class_specific/{args.attack}/{c}.svg", dpi=200, bbox_inches='tight', format='svg')
@@ -111,14 +111,14 @@ for x,xadv,y,yadv in adv_test_dataloader:
     correct+=correct_images.sum()
     if correct_images.sum()==0:
         continue
-    masked_model=MaskedClf(Mask((3, 32, 32)).to(device), base_model)
-    masked_model.mask.M.data=torch.fft.ifftshift(torch.tensor(np.load(f'class_specific/{args.attack}/{yadv.item()}.npy')))
-    masked_model.mask=masked_model.mask.to(device)
+    masked_model=MaskedClf(Map((3, 32, 32)).to(device), base_model)
+    masked_model.map.M.data=torch.fft.ifftshift(torch.tensor(np.load(f'class_specific/{args.attack}/{yadv.item()}.npy')))
+    masked_model.map=masked_model.map.to(device)
     masked_model.eval()
     adversarial+=(masked_model(xadv).argmax(-1)==y).sum()
-    masked_model=MaskedClf(Mask((3, 32, 32)).to(device), base_model)
-    masked_model.mask.M.data=torch.fft.ifftshift(torch.tensor(np.load(f'class_specific/{args.attack}/{y.item()}.npy')))
-    masked_model.mask=masked_model.mask.to(device)
+    masked_model=MaskedClf(Map((3, 32, 32)).to(device), base_model)
+    masked_model.map.M.data=torch.fft.ifftshift(torch.tensor(np.load(f'class_specific/{args.attack}/{y.item()}.npy')))
+    masked_model.map=masked_model.map.to(device)
     masked_model.eval()
     masked+=(masked_model(x).argmax(-1)==y).sum()
-print("Correctly classified: ", correct.item(), "Correct after using the mask: ", masked, "Adversarial undone after using the mask:", adversarial)
+print("Correctly classified: ", correct.item(), "Correct after using the map: ", masked, "Adversarial undone after using the map:", adversarial)

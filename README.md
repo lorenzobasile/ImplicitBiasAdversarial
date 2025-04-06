@@ -1,4 +1,4 @@
-# Relating Implicit Bias and Adversarial Attacks through Intrinsic Dimension
+# Frequency maps reveal the correlation between Adversarial Attacks and Implicit Bias
 
 Code for the paper, tested with `python>=3.8, <=3.10`.
 
@@ -18,24 +18,22 @@ python train.py --model
 
 The `model` argument can be chosen between `resnet20` (for CIFAR-10) and `resnet18` and `vit` (for Imagenette). This script will create a `trained_models` folder containing the trained parameters for the chosen model, to be used for the following experiments.
 
-Fourier masks (essential frequency masks and adversarial frequency masks) can be trained by running:
+Fourier maps (essential frequency maps and adversarial frequency maps) can be trained by running:
 
 ```
-python mask_train.py --model --attack --mask
+python map_train.py --model --attack --map
 ```
 
-The first argument follows the same syntax as above, while `attack` determines the kind of adversarial attack to employ and it can be chosen among `FMN`, `PGD` and `DF` (for respectively Fast Minimum Norm , Projected Gradient Descent  and DeepFool). `mask` defines the type of masks to be trained, either `essential` or `adversarial`.
+The first argument follows the same syntax as above, while `attack` determines the kind of adversarial attack to employ and it can be chosen among `FMN`, `PGD` and `DF` (for respectively Fast Minimum Norm , Projected Gradient Descent  and DeepFool). `map` defines the type of maps to be trained, either `essential` or `adversarial`.
 
-Once both essential frequency masks and adversarial frequency masks have been computed for a given model-attack pair, correlations (based on cosine similarity and on the novel method based on Intrinsic Dimension) can be computed using:
+Once both essential frequency maps and adversarial frequency maps have been computed for a given model-attack pair, correlations (based on cosine similarity and on the novel method based on Intrinsic Dimension) can be computed using:
 
 ```
 python correlation.py --model --attack
 ```
 
-The experiment on class-specificity of masks, reported in sections 4.7 and A.6, can be reproduced by running:
+Finally, the class-level maps can be computed and tested by running:
 
 ```
-python class_specificity.py
+python class_level_maps.py
 ```
-
-And, finally, the class-level masks can be computed and tested running the notebook `class_level_masks.ipynb`.

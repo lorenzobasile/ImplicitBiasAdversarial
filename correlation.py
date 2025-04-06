@@ -1,5 +1,5 @@
 
-from utils.data import MaskDataset
+from utils.data import MapDataset
 import argparse
 import numpy as np
 from utils.intrinsic_dimension import id_correlation
@@ -20,10 +20,6 @@ def cosine_sim(dataset1, dataset2):
     norm1=np.linalg.norm(dataset1, 2, axis=1)
     norm2=np.linalg.norm(dataset2, 2, axis=1)
     corrs=np.divide(np.divide(product, norm1), norm2)
-    import matplotlib.pyplot as plt
-    plt.figure()
-    plt.hist(corrs, bins=100)
-    plt.savefig('corrs.png')
     return np.mean(corrs), np.std(corrs)
 
 parser = argparse.ArgumentParser()
@@ -36,26 +32,26 @@ device='cuda' if torch.cuda.is_available() else 'cpu'
 args = parser.parse_args()
 image_size=224 if args.model=='resnet18' or args.model=='vit' else 32
 
-dataset1=MaskDataset(f'./adversarial/{args.attack}/{args.model}/masks/', image_size)
-dataset2=MaskDataset(f'./essential/{args.model}/masks/', image_size)
+dataset1=MapDataset(f'./adversarial/{args.attack}/{args.model}/maps/', image_size)
+dataset2=MapDataset(f'./essential/{args.model}/maps/', image_size)
 
-masks1=dataset1.masks
-masks2=dataset2.masks
+maps1=dataset1.maps
+maps2=dataset2.maps
 
-indices1=dataset1.mask_indices.numpy()
-indices2=dataset2.mask_indices.numpy()
+indices1=dataset1.map_indices.numpy()
+indices2=dataset2.map_indices.numpy()
 
 _, ind1, ind2= np.intersect1d(indices1, indices2, assume_unique=True, return_indices=True)
 
-masks1=masks1[ind1]
-masks2=masks2[ind2]
+maps1=maps1[ind1]
+maps2=maps2[ind2]
 
 kernel_size=1 if image_size==32 else 7
 
 
-m1=torch.nn.functional.max_pool2d(masks1, kernel_size=kernel_size)
+m1=torch.nn.functional.max_pool2d(maps1, kernel_size=kernel_size)
 m1=m1.reshape(-1, 3*m1.shape[-1]*m1.shape[-1])
-m2=torch.nn.functional.max_pool2d(masks2, kernel_size=kernel_size)
+m2=torch.nn.functional.max_pool2d(maps2, kernel_size=kernel_size)
 m2=m2.reshape(-1, 3*m2.shape[-1]*m2.shape[-1])
 
 print("IdCor: ", id_correlation(m1.to(device), m2.to(device), algorithm='twoNN', N=100))

@@ -12,7 +12,7 @@ parser = argparse.ArgumentParser()
 
 parser.add_argument('--attack', type=str, default="FMN", help="attack type")
 parser.add_argument('--model', type=str, default="resnet20", help="model architecture")
-parser.add_argument('--mask', type=str, default="essential", help="type of mask (essential or adversarial)")
+parser.add_argument('--map', type=str, default="essential", help="type of map (essential or adversarial)")
 args = parser.parse_args()
 
 save_figs=True
@@ -31,16 +31,16 @@ if 'PGD' in args.attack and len(args.attack)>3:
 image_size=32 if dataset=='cifar10' else 224
 attack=args.attack
 batch_size=64
-if args.mask=='essential':
+if args.map=='essential':
     path="./essential/"+model_name+"/"
-elif args.mask=='adversarial':
+elif args.map=='adversarial':
     path="./adversarial/"+attack+"/"+model_name+"/"
 n_classes=10
 
 if not os.path.exists(path):
     for i in range(n_classes):
         os.makedirs(path+"figures/"+str(i), exist_ok=True)
-        os.makedirs(path+"masks/"+str(i), exist_ok=True)
+        os.makedirs(path+"maps/"+str(i), exist_ok=True)
         
 
 dataloaders=get_dataloaders(dataset, batch_size, batch_size, shuffle_train=True, shuffle_test=False)
@@ -56,8 +56,8 @@ elif dataset=='imagenette':
     adv_dataloader=DataLoader(AdversarialDataset(fmodel, model_name, attack, dataloaders['all'], image_size, 'all', eps=eps), batch_size=batch_size, shuffle=False)
 idx=0
 for x, xadv, y, yadv in tqdm(adv_dataloader):
-    if args.mask=='essential':
+    if args.map=='essential':
         idx=ess_train(base_model, x, y, lam, idx, path, image_size, save_figs)
-    elif args.mask=='adversarial':
+    elif args.map=='adversarial':
         idx=adv_train(base_model, x,  xadv, y, lam, idx, path, image_size, save_figs)
 

@@ -1,7 +1,7 @@
 import torch
 import numpy as np
 import matplotlib.pyplot as plt
-from utils.models import MaskedClf, Mask
+from utils.models import MaskedClf, Map
 import os
 
 def train(model, dataloaders, n_epochs, optimizer, scheduler=None):
@@ -44,16 +44,16 @@ def train(model, dataloaders, n_epochs, optimizer, scheduler=None):
 def ess_train(base_model, clean, y, lam, idx, path, img_size, figures=False):
 
     '''
-    Function to train essential frequency masks
+    Function to train essential frequency maps
 
     Param base_model (torch.nn.Module): pre-trained classifier
     Param clean (torch.tensor): tensor containing a batch of clean, non-adversarial images
     Param y (torch.tensor): tensor containing a batch of image labels
     Param lam (float): parameter governing l_1 regularization
     Param idx (int): index of current image to be processed
-    Param path (str): path to the folder used to store masks
+    Param path (str): path to the folder used to store maps
     Param img_size (int): height (== width) of the images
-    Param figures (bool): True if masks are to be stored after training, False otherwise
+    Param figures (bool): True if maps are to be stored after training, False otherwise
 
     Return: index of next image to be processed
     '''
@@ -68,35 +68,35 @@ def ess_train(base_model, clean, y, lam, idx, path, img_size, figures=False):
     #we consider only correctly classified images
     werecorrect=(np.where((torch.argmax(base_out, axis=1)==y).cpu())[0])
     for i in range(n):
-        if not os.path.isfile(path+"masks/"+str(y[i].item())+"/"+str(idx)+".npy"):
+        if not os.path.isfile(path+"maps/"+str(y[i].item())+"/"+str(idx)+".npy"):
 
             if i not in werecorrect:
                 idx+=1
             else:  
-                model=MaskedClf(Mask((3, img_size, img_size)).to(device), base_model)
+                model=MaskedClf(Map((3, img_size, img_size)).to(device), base_model)
                 for p in model.clf.parameters():
                     p.requires_grad=False
-                model.mask.train()
-                optimizer=torch.optim.Adam(model.mask.parameters(), lr=0.01)
+                model.map.train()
+                optimizer=torch.optim.Adam(model.map.parameters(), lr=0.01)
                 epoch=0
                 while True:
                     out=model(clean[i])
                     l=loss(out, y[i].reshape(1))
-                    penalty=model.mask.M.abs().sum()
+                    penalty=model.map.M.abs().sum()
                     l+=penalty*lam
                     losses[i].append(l.item())
                     optimizer.zero_grad()
                     l.backward()
                     optimizer.step()
-                    #mask entries are in [0,1]
-                    model.mask.M.data.clamp_(0.,1.)
+                    #map entries are in [0,1]
+                    model.map.M.data.clamp_(0.,1.)
                     epoch+=1
                     #train until convergence, for no less than 500 epochs and no more than 5000 epochs
                     if (epoch>500 and abs(l.item()-np.mean(losses[i][-20:]))<1e-5) or epoch>5000:
                         correct=torch.argmax(out, axis=1)==y[i]
                         if correct:
-                            mask=torch.fft.fftshift(model.mask.M.detach().cpu())
-                            mask=mask.squeeze().numpy()
+                            map=torch.fft.fftshift(model.map.M.detach().cpu())
+                            map=map.squeeze().numpy()
                             if figures:
                                 plt.axis('off')
                                 plt.figure(figsize=(30,20))
@@ -104,13 +104,13 @@ def ess_train(base_model, clean, y, lam, idx, path, img_size, figures=False):
                                 plt.savefig(path+"figures/"+str(y[i].item())+"/"+str(idx)+"loss.png")
                                 plt.close()
                                 plt.figure()
-                                plt.imshow(np.transpose(mask, (1,2,0)))
+                                plt.imshow(np.transpose(map, (1,2,0)))
                                 plt.xticks([], [])
                                 plt.yticks([], [])
                                 plt.savefig(path+"figures/"+str(y[i].item())+"/"+str(idx)+".svg", dpi=200, bbox_inches='tight', format='svg')
                                 plt.close()
                                 img=clean[i].reshape(3,img_size,img_size).detach().cpu().permute(1,2,0).numpy()
-                                img_recon=model.mask(clean[i]).reshape(3,img_size,img_size).detach().cpu().permute(1,2,0).numpy()
+                                img_recon=model.map(clean[i]).reshape(3,img_size,img_size).detach().cpu().permute(1,2,0).numpy()
                                 plt.figure()           
                                 plt.imshow(img)
                                 plt.xticks([], [])
@@ -130,8 +130,8 @@ def ess_train(base_model, clean, y, lam, idx, path, img_size, figures=False):
                                 plt.savefig(path+"figures/"+str(y[i].item())+"/"+str(idx)+"clean_recon.svg", dpi=200, bbox_inches='tight', format='svg')
                                 plt.close()
                             
-                            np.save(path+"masks/"+str(y[i].item())+"/"+str(idx)+".npy", mask)
-                            del mask
+                            np.save(path+"maps/"+str(y[i].item())+"/"+str(idx)+".npy", map)
+                            del map
                         idx+=1
                         break
         else:
@@ -141,7 +141,7 @@ def ess_train(base_model, clean, y, lam, idx, path, img_size, figures=False):
 def adv_train(base_model, clean, adv, y, lam, idx, path, img_size, figures=False):
 
     '''
-    Function to train adversarial frequency masks
+    Function to train adversarial frequency maps
 
     Param base_model (torch.nn.Module): pre-trained classifier
     Param clean (torch.tensor): tensor containing a batch of clean, non-adversarial images
@@ -149,9 +149,9 @@ def adv_train(base_model, clean, adv, y, lam, idx, path, img_size, figures=False
     Param y (torch.tensor): tensor containing a batch of non-adversarial image labels
     Param lam (float): parameter governing l_1 regularization
     Param idx (int): index of current image to be processed
-    Param path (str): path to the folder used to store masks
+    Param path (str): path to the folder used to store maps
     Param img_size (int): height (== width) of the images
-    Param figures (bool): True if masks are to be stored after training, false otherwise
+    Param figures (bool): True if maps are to be stored after training, false otherwise
 
     Return: index of next image to be processed
     '''
@@ -169,48 +169,48 @@ def adv_train(base_model, clean, adv, y, lam, idx, path, img_size, figures=False
     #we consider only correctly classified and successfully attacked images
     wereadv=(np.where(torch.logical_and((torch.argmax(base_out, axis=1)==y).cpu(), (torch.argmax(base_adv, axis=1)!=y).cpu()))[0])
     for i in range(n):
-        if not os.path.isfile(path+"masks/"+str(y[i].item())+"/"+str(idx)+".npy"):
+        if not os.path.isfile(path+"maps/"+str(y[i].item())+"/"+str(idx)+".npy"):
             if i not in wereadv:
                 idx+=1
             else:    
-                model=MaskedClf(Mask((3, img_size, img_size)).to(device), base_model)
+                model=MaskedClf(Map((3, img_size, img_size)).to(device), base_model)
                 for p in model.clf.parameters():
                     p.requires_grad=False
-                model.mask.train()
-                optimizer=torch.optim.Adam(model.mask.parameters(), lr=0.01)
+                model.map.train()
+                optimizer=torch.optim.Adam(model.map.parameters(), lr=0.01)
                 epoch=0
                 while True:
                     out=model(adv[i])
                     l=loss(out, wrong_labels[i].reshape(1))
-                    penalty=model.mask.M.abs().sum()
+                    penalty=model.map.M.abs().sum()
                     l+=penalty*lam
                     losses[i].append(l.item())
                     optimizer.zero_grad()
                     l.backward()
                     optimizer.step()
-                    #mask entries are in [0,1]
-                    model.mask.M.data.clamp_(0., 1.)
+                    #map entries are in [0,1]
+                    model.map.M.data.clamp_(0., 1.)
                     epoch+=1
                     #train until convergence, for no less than 500 epochs and no more than 5000 epochs
                     if(epoch>500 and abs(l.item()-np.mean(losses[i][-20:]))<1e-5) or epoch>5000:
                         model.eval()
                         correct = torch.argmax(out, axis=1)==wrong_labels[i]
                         if correct:
-                            mask=torch.fft.fftshift(model.mask.M.detach().cpu())
-                            mask=mask.squeeze().numpy()
+                            map=torch.fft.fftshift(model.map.M.detach().cpu())
+                            map=map.squeeze().numpy()
                             if figures:
                                 plt.figure(figsize=(30,20))
                                 plt.plot(losses[i])
                                 plt.savefig(path+"figures/"+str(y[i].item())+"/"+str(idx)+"loss.png")
                                 plt.close()
                                 plt.figure()
-                                plt.imshow(np.transpose(mask, (1,2,0)))
+                                plt.imshow(np.transpose(map, (1,2,0)))
                                 plt.xticks([], [])
                                 plt.yticks([], [])
                                 plt.savefig(path+"figures/"+str(y[i].item())+"/"+str(idx)+"_"+str(wrong_labels[i].item())+".svg", dpi=200, bbox_inches='tight', format='svg')
                                 plt.close()
                                 adv_img=adv[i].reshape(3,img_size,img_size).detach().cpu().permute(1,2,0).numpy()
-                                recon=model.mask(adv[i]).reshape(3,img_size,img_size).detach().cpu().permute(1,2,0).numpy()
+                                recon=model.map(adv[i]).reshape(3,img_size,img_size).detach().cpu().permute(1,2,0).numpy()
                                 plt.figure()
                                 plt.imshow(adv_img)
                                 plt.xticks([], [])
@@ -229,8 +229,8 @@ def adv_train(base_model, clean, adv, y, lam, idx, path, img_size, figures=False
                                 plt.yticks([], [])
                                 plt.savefig(path+"figures/"+str(y[i].item())+"/"+str(idx)+"pert_recon.svg", dpi=200, bbox_inches='tight', format='svg')   
                                 plt.close()                  
-                            np.save(path+"masks/"+str(y[i].item())+"/"+str(idx)+".npy", mask)
-                            del mask
+                            np.save(path+"maps/"+str(y[i].item())+"/"+str(idx)+".npy", map)
+                            del map
                             
                         idx+=1
                         break
